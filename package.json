@@ -18,5 +18,8 @@
     "typescript": "~5.8.0",
     "viem": "^2.37.9"
   },
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "dotenv": "^17.2.3"
+  }
 }
