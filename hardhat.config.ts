@@ -3,6 +3,7 @@ import "dotenv/config";
 
 import hardhatToolboxViemPlugin from "@nomicfoundation/hardhat-toolbox-viem";
 import { configVariable } from "hardhat/config";
+import "@nomicfoundation/hardhat-ethers";
 
 const config: HardhatUserConfig = {
   plugins: [hardhatToolboxViemPlugin],
