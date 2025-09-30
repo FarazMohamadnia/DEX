@@ -1,0 +1,18 @@
+{
+  "address": "0x36072e5e1fA0b8E59D5BFED0e468e19262D674e1",
+  "privateKey": "0x73a8d71de5a6f272e299d94303c93cb35d607e53f56df2a50a2c0cb78fb33fef",
+  "mnemonic": "release fever deer tribe absurd remember vivid online issue crisp voyage level",
+  "network": {
+    "name": "Sepolia Testnet",
+    "chainId": 11155111,
+    "rpcUrl": "https://sepolia.infura.io/v3/YOUR-PROJECT-ID",
+    "nativeCurrency": {
+      "name": "Sepolia Ether",
+      "symbol": "SEP",
+      "decimals": 18
+    },
+    "blockExplorerUrls": [
+      "https://sepolia.etherscan.io"
+    ]
+  }
+}
