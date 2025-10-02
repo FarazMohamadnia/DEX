@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import "../pool/Pool.sol";
+
 // Factory contract for a simple Constant-Product AMM (DEX) in the spirit of
 // Uniswap V2 / PancakeSwap. The Factory is responsible for creating and
 // indexing Pair contracts (called Pool here) for token pairs.
@@ -16,32 +18,6 @@ pragma solidity ^0.8.20;
 //   which is callable once, by the Factory, immediately after deployment.
 // - It should set its factory to msg.sender (this Factory) either via
 //   constructor or via initialize, depending on your Pool implementation.
-//
-// Note: For demonstration purposes and to keep this file self-contained,
-// we include a minimal Pool implementation below. If you already have a
-// Pool contract (e.g., in contracts/pool/Pool.sol), you can remove the
-// inline Pool and import yours instead.
-
-// for testing purposes
-contract Pool {
-    address public factory;
-    address public token0;
-    address public token1;
-    bool private initialized;
-
-    constructor() {
-        factory = msg.sender;
-    }
-
-    function initialize(address _token0, address _token1) external {
-        require(msg.sender == factory, "Pool: not factory");
-        require(!initialized, "Pool: initialized");
-        require(_token0 != _token1, "Pool: identical");
-        token0 = _token0 < _token1 ? _token0 : _token1;
-        token1 = _token0 < _token1 ? _token1 : _token0;
-        initialized = true;
-    }
-}
 
 /// @notice Minimal interface for the Pool to allow initialization after deploy
 interface IPool {
