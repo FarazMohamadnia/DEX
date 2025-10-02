@@ -19,7 +19,7 @@ contract Pool is Ownable, ReentrancyGuard {
     address public factory;
     address public token0;
     address public token1;
-    bool private initialized;
+    bool public initialized;
 
     uint256 private reserve0;
     uint256 private reserve1;
