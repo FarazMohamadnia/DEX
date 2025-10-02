@@ -22,6 +22,7 @@
   "type": "module",
   "dependencies": {
     "@nomicfoundation/hardhat-toolbox-mocha-ethers": "^3.0.0",
+    "@openzeppelin/contracts": "^5.4.0",
     "dotenv": "^17.2.3",
     "ethers": "^6.15.0"
   }
