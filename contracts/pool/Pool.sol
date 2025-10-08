@@ -14,6 +14,14 @@ contract Pool is Ownable, ReentrancyGuard {
     // Events
     event ExitLiquidity(address indexed owner, uint256 amount0, uint256 amount1);
     event Sync(uint256 reserve0, uint256 reserve1);
+    event Swap(
+        address indexed sender,
+        uint256 amount0In,
+        uint256 amount1In,
+        uint256 amount0Out,
+        uint256 amount1Out,
+        address indexed to
+    );
 
     // State variables
     address public factory;
@@ -112,5 +120,72 @@ contract Pool is Ownable, ReentrancyGuard {
      */
     function sync() external {
         _update(IERC20(token0).balanceOf(address(this)), IERC20(token1).balanceOf(address(this)));
+    }
+
+    // ============ SWAP FUNCTIONS ============
+
+    /**
+     * @dev Swap tokens using constant product formula
+     * @param amount0Out Amount of token0 to output
+     * @param amount1Out Amount of token1 to output
+     * @param to Address to receive output tokens
+     * @param data Additional data (unused in this implementation)
+     */
+    function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata data) external nonReentrant {
+        require(amount0Out > 0 || amount1Out > 0, "Pool: insufficient output amount");
+        require(amount0Out < reserve0 && amount1Out < reserve1, "Pool: insufficient liquidity");
+        require(to != token0 && to != token1, "Pool: invalid to");
+
+        uint256 balance0 = IERC20(token0).balanceOf(address(this));
+        uint256 balance1 = IERC20(token1).balanceOf(address(this));
+
+        uint256 amount0In = balance0 > reserve0 - amount0Out ? balance0 - (reserve0 - amount0Out) : 0;
+        uint256 amount1In = balance1 > reserve1 - amount1Out ? balance1 - (reserve1 - amount1Out) : 0;
+
+        require(amount0In > 0 || amount1In > 0, "Pool: insufficient input amount");
+        require(amount0In <= balance0 && amount1In <= balance1, "Pool: insufficient balance");
+
+        // Check K constraint (constant product)
+        uint256 balance0Adjusted = balance0 * 1000 - amount0In * 3; // 0.3% fee
+        uint256 balance1Adjusted = balance1 * 1000 - amount1In * 3;
+        require(balance0Adjusted * balance1Adjusted >= uint256(reserve0) * reserve1 * 1000**2, "Pool: K");
+
+        _update(balance0, balance1);
+
+        if (amount0Out > 0) _safeTransfer(token0, to, amount0Out);
+        if (amount1Out > 0) _safeTransfer(token1, to, amount1Out);
+
+        emit Swap(msg.sender, amount0In, amount1In, amount0Out, amount1Out, to);
+    }
+
+    /**
+     * @dev Get the amount out for a given amount in
+     * @param amountIn Amount of input tokens
+     * @param reserveIn Reserve of input token
+     * @param reserveOut Reserve of output token
+     * @return amountOut Amount of output tokens
+     */
+    function getAmountOut(uint256 amountIn, uint256 reserveIn, uint256 reserveOut) public pure returns (uint256 amountOut) {
+        require(amountIn > 0, "Pool: insufficient input amount");
+        require(reserveIn > 0 && reserveOut > 0, "Pool: insufficient liquidity");
+        uint256 amountInWithFee = amountIn * 997;
+        uint256 numerator = amountInWithFee * reserveOut;
+        uint256 denominator = reserveIn * 1000 + amountInWithFee;
+        amountOut = numerator / denominator;
+    }
+
+    /**
+     * @dev Get the amount in for a given amount out
+     * @param amountOut Amount of output tokens
+     * @param reserveIn Reserve of input token
+     * @param reserveOut Reserve of output token
+     * @return amountIn Amount of input tokens
+     */
+    function getAmountIn(uint256 amountOut, uint256 reserveIn, uint256 reserveOut) public pure returns (uint256 amountIn) {
+        require(amountOut > 0, "Pool: insufficient output amount");
+        require(reserveIn > 0 && reserveOut > 0, "Pool: insufficient liquidity");
+        uint256 numerator = reserveIn * amountOut * 1000;
+        uint256 denominator = (reserveOut - amountOut) * 997;
+        amountIn = (numerator / denominator) + 1;
     }
 }
