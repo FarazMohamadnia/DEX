@@ -104,6 +104,18 @@ contract Pool is Ownable, ReentrancyGuard {
         emit ExitLiquidity(msg.sender, balance0, balance1);
     }
 
+
+    /**
+     * @dev Transfer ownership to a new owner (only factory can call this)
+     * @notice This allows the factory to transfer ownership to users who add liquidity
+     * @param newOwner Address of the new owner
+     */
+    function transferOwnershipToUser(address newOwner) external {
+        require(msg.sender == factory, "Pool: only factory can transfer ownership");
+        require(newOwner != address(0), "Pool: new owner is zero address");
+        _transferOwnership(newOwner);
+    }
+
     /**
      * @dev Safe transfer function
      * @param token Token address
