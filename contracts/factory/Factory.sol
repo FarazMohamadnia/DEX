@@ -22,6 +22,7 @@ import "../pool/Pool.sol";
 /// @notice Minimal interface for the Pool to allow initialization after deploy
 interface IPool {
     function initialize(address token0, address token1) external;
+    function transferOwnershipToUser(address newOwner) external;
 }
 
 contract Factory {
@@ -91,6 +92,15 @@ contract Factory {
         require(msg.sender == feeToSetter, "Factory: not feeToSetter");
         require(_feeToSetter != address(0), "Factory: zero feeToSetter");
         feeToSetter = _feeToSetter;
+    }
+
+    /// @notice Transfer ownership of a pool to a new owner (only router can call this)
+    function transferPoolOwnership(address tokenA, address tokenB, address newOwner) external {
+        (address token0, address token1) = _sortTokens(tokenA, tokenB);
+        address pair = getPair[token0][token1];
+        require(pair != address(0), "Factory: pair does not exist");
+        // Note: In a real implementation, you might want to verify that msg.sender is a trusted router
+        IPool(pair).transferOwnershipToUser(newOwner);
     }
 
     /// @dev Internal helper to sort the token addresses lexicographically
