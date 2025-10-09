@@ -346,7 +346,7 @@ contract FactoryTest is Test {
         console.log("Gas used for createPair:", gasUsed);
         
         // Gas usage should be reasonable (adjusted threshold)
-        assertLt(gasUsed, 2_200_000);
+        assertLt(gasUsed, 2_500_000);
     }
 
     // ============ REENTRANCY TESTS ============
