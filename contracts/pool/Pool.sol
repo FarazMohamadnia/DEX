@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "../factory/Factory.sol";
 
 /**
  * @title Pool
@@ -44,6 +45,9 @@ contract Pool is Ownable, ReentrancyGuard {
     uint256 public maxSwapOutPercentBps = 10000;
     // Minimum reserves that must remain after a swap, per token
     uint256 public minLiquidityThreshold;
+
+    // Optional sanity guard for sync: max allowed reserve drift per call (in BPS). 10000 disables checks.
+    uint256 public maxSyncDriftBps = 10000;
 
     constructor() Ownable(msg.sender) {
         factory = msg.sender;
@@ -162,7 +166,28 @@ contract Pool is Ownable, ReentrancyGuard {
      * @dev Sync reserves with actual balances
      */
     function sync() external {
-        _update(IERC20(token0).balanceOf(address(this)), IERC20(token1).balanceOf(address(this)));
+        // Restrict who can trigger sync to trusted actors
+        address router = Factory(factory).trustedRouter();
+        require(router != address(0), "Pool: router not set");
+        require(msg.sender == factory || msg.sender == router || msg.sender == owner(), "Pool: unauthorized sync");
+
+        uint256 newBal0 = IERC20(token0).balanceOf(address(this));
+        uint256 newBal1 = IERC20(token1).balanceOf(address(this));
+
+        if (maxSyncDriftBps < 10000) {
+            if (reserve0 > 0) {
+                uint256 min0 = (reserve0 * (10000 - maxSyncDriftBps)) / 10000;
+                uint256 max0 = (reserve0 * (10000 + maxSyncDriftBps)) / 10000;
+                require(newBal0 >= min0 && newBal0 <= max0, "Pool: sync drift0");
+            }
+            if (reserve1 > 0) {
+                uint256 min1 = (reserve1 * (10000 - maxSyncDriftBps)) / 10000;
+                uint256 max1 = (reserve1 * (10000 + maxSyncDriftBps)) / 10000;
+                require(newBal1 >= min1 && newBal1 <= max1, "Pool: sync drift1");
+            }
+        }
+
+        _update(newBal0, newBal1);
     }
 
     // ============ SWAP FUNCTIONS ============
@@ -230,6 +255,14 @@ contract Pool is Ownable, ReentrancyGuard {
      */
     function setMinLiquidityThreshold(uint256 newMin) external onlyOwner {
         minLiquidityThreshold = newMin;
+    }
+
+    /**
+     * @dev Configure max allowed reserve drift on sync (in BPS). 10000 disables checks.
+     */
+    function setMaxSyncDriftBps(uint256 newBps) external onlyOwner {
+        require(newBps <= 10000, "Pool: invalid bps");
+        maxSyncDriftBps = newBps;
     }
 
     /**
