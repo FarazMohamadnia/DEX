@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "../factory/Factory.sol";
@@ -13,6 +14,7 @@ import "../pool/Pool.sol";
  * @notice Provides high-level functions for swapping tokens and managing liquidity
  */
 contract Router is ReentrancyGuard, Ownable {
+    using SafeERC20 for IERC20;
     // Factory contract address
     address public immutable factory;
     
@@ -166,7 +168,7 @@ contract Router is ReentrancyGuard, Ownable {
         uint256 amountB,
         address to,
         uint256 deadline
-    ) external nonReentrant ensure(deadline) returns (uint256, uint256) {
+    ) external nonReentrant ensure(deadline) returns (uint256 amountAUsed, uint256 amountBUsed) {
         address pair = _getPair(tokenA, tokenB);
         require(pair != address(0), "Router: pair does not exist");
         
@@ -252,7 +254,7 @@ contract Router is ReentrancyGuard, Ownable {
         address tokenB,
         address to,
         uint256 deadline
-    ) external nonReentrant ensure(deadline) returns (uint256, uint256) {
+    ) external nonReentrant ensure(deadline) returns (uint256 amountA, uint256 amountB) {
         address pair = _getPair(tokenA, tokenB);
         require(pair != address(0), "Router: pair does not exist");
         
@@ -397,10 +399,7 @@ contract Router is ReentrancyGuard, Ownable {
     }
 
     function _safeTransferFrom(address token, address from, address to, uint256 value) internal {
-        (bool success, bytes memory data) = token.call(
-            abi.encodeWithSelector(IERC20.transferFrom.selector, from, to, value)
-        );
-        require(success && (data.length == 0 || abi.decode(data, (bool))), "Router: transfer failed");
+        IERC20(token).safeTransferFrom(from, to, value);
     }
 
     function _safeTransferETH(address to, uint256 value) internal {

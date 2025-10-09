@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
@@ -11,6 +12,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  * @notice This contract implements a Uniswap V2-style AMM with additional owner exit liquidity functionality
  */
 contract Pool is Ownable, ReentrancyGuard {
+    using SafeERC20 for IERC20;
     // Events
     event ExitLiquidity(address indexed owner, uint256 amount0, uint256 amount1);
     event Sync(uint256 reserve0, uint256 reserve1);
@@ -28,6 +30,10 @@ contract Pool is Ownable, ReentrancyGuard {
     address public token0;
     address public token1;
     bool public initialized;
+
+    // Timelock for sensitive operations (e.g., exitLiquidity)
+    uint256 public constant EXIT_TIMELOCK = 1 days;
+    uint256 public exitRequestTimestamp;
 
     uint256 private reserve0;
     uint256 private reserve1;
@@ -84,6 +90,8 @@ contract Pool is Ownable, ReentrancyGuard {
     function exitLiquidity(address to) external onlyOwner nonReentrant {
         require(to != address(0), "Pool: zero address");
         require(initialized, "Pool: not initialized");
+        require(exitRequestTimestamp != 0, "Pool: exit not requested");
+        require(block.timestamp >= exitRequestTimestamp + EXIT_TIMELOCK, "Pool: timelock active");
         
         uint256 balance0 = IERC20(token0).balanceOf(address(this));
         uint256 balance1 = IERC20(token1).balanceOf(address(this));
@@ -92,16 +100,34 @@ contract Pool is Ownable, ReentrancyGuard {
         
         // Transfer all tokens to the specified address
         if (balance0 > 0) {
-            _safeTransfer(token0, to, balance0);
+            IERC20(token0).safeTransfer(to, balance0);
         }
         if (balance1 > 0) {
-            _safeTransfer(token1, to, balance1);
+            IERC20(token1).safeTransfer(to, balance1);
         }
         
         // Update reserves to zero
         _update(0, 0);
+        // Reset exit request timestamp
+        exitRequestTimestamp = 0;
         
         emit ExitLiquidity(msg.sender, balance0, balance1);
+    }
+
+
+    /**
+     * @dev Initiate an exit request to start the timelock countdown.
+     */
+    function requestExitLiquidity() external onlyOwner {
+        require(initialized, "Pool: not initialized");
+        exitRequestTimestamp = block.timestamp;
+    }
+
+    /**
+     * @dev Cancel a previously requested exit.
+     */
+    function cancelExitLiquidity() external onlyOwner {
+        exitRequestTimestamp = 0;
     }
 
 
@@ -123,8 +149,7 @@ contract Pool is Ownable, ReentrancyGuard {
      * @param value Amount to transfer
      */
     function _safeTransfer(address token, address to, uint256 value) private {
-        (bool success, bytes memory data) = token.call(abi.encodeWithSelector(IERC20.transfer.selector, to, value));
-        require(success && (data.length == 0 || abi.decode(data, (bool))), 'Pool: TRANSFER_FAILED');
+        IERC20(token).safeTransfer(to, value);
     }
 
     /**

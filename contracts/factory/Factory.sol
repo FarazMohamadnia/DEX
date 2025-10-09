@@ -35,6 +35,11 @@ contract Factory {
     // Address allowed to update feeTo
     address public feeToSetter;
 
+    // Trusted router that is allowed to orchestrate ownership transfers
+    address public trustedRouter;
+
+    event TrustedRouterUpdated(address indexed previousRouter, address indexed newRouter);
+
     // Mapping from tokenA => tokenB => Pool address
     mapping(address => mapping(address => address)) public getPair;
 
@@ -94,12 +99,20 @@ contract Factory {
         feeToSetter = _feeToSetter;
     }
 
+    /// @notice Set the trusted router address that can manage certain privileged interactions
+    function setTrustedRouter(address _router) external {
+        require(msg.sender == feeToSetter, "Factory: not feeToSetter");
+        address previous = trustedRouter;
+        trustedRouter = _router;
+        emit TrustedRouterUpdated(previous, _router);
+    }
+
     /// @notice Transfer ownership of a pool to a new owner (only router can call this)
     function transferPoolOwnership(address tokenA, address tokenB, address newOwner) external {
+        require(msg.sender == trustedRouter, "Factory: caller not trusted router");
         (address token0, address token1) = _sortTokens(tokenA, tokenB);
         address pair = getPair[token0][token1];
         require(pair != address(0), "Factory: pair does not exist");
-        // Note: In a real implementation, you might want to verify that msg.sender is a trusted router
         IPool(pair).transferOwnershipToUser(newOwner);
     }
 
