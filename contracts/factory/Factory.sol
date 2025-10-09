@@ -70,8 +70,9 @@ contract Factory {
         require(token0 != address(0), "Factory: zero address");
         require(getPair[token0][token1] == address(0), "Factory: pair exists");
 
-        // Deploy new Pool
-        pair = address(new Pool());
+        // Deterministic deployment using CREATE2 so the address depends only on token0, token1 and bytecode
+        bytes32 salt = keccak256(abi.encodePacked(token0, token1));
+        pair = address(new Pool{salt: salt}());
 
         // Initialize pool with sorted token ordering
         IPool(pair).initialize(token0, token1);
