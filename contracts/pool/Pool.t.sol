@@ -19,9 +19,24 @@ contract MockERC20 is ERC20 {
 
 // Mock Factory for testing
 contract MockFactory {
+    address public router;
+
+    constructor() {
+        // set a default non-zero router to satisfy Pool.sync() router check
+        router = address(1);
+    }
+
     function createPool() external returns (address) {
         Pool pool = new Pool();
         return address(pool);
+    }
+
+    function trustedRouter() external view returns (address) {
+        return router;
+    }
+
+    function setRouter(address r) external {
+        router = r;
     }
 }
 
@@ -145,7 +160,8 @@ contract PoolTest is Test {
         token1.transfer(address(freshPool), 2000 * 10**18);
         console.log("1--token0.balanceOf(owner)", token0.balanceOf(address(freshPool)));
         console.log("2--token1.balanceOf(owner)", token1.balanceOf(address(freshPool)));
-        // Sync reserves
+        // Sync reserves (must be called by factory per Pool.sync guard)
+        vm.prank(address(factory));
         freshPool.sync();
         // Check reserves are updated
         (uint256 reserve0, uint256 reserve1,) = freshPool.getReserves();
@@ -166,6 +182,7 @@ contract PoolTest is Test {
         token1.transfer(address(pool), 2000 * 10**18);
         
         // Sync reserves
+        vm.prank(address(factory));
         pool.sync();
         
         // Record initial balances
@@ -330,6 +347,7 @@ contract PoolTest is Test {
         token1.mint(address(pool), largeAmount);
         
         // Sync should work without overflow
+        vm.prank(address(factory));
         pool.sync();
         
         (uint256 reserve0, uint256 reserve1,) = pool.getReserves();
