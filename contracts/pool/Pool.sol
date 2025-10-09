@@ -39,6 +39,12 @@ contract Pool is Ownable, ReentrancyGuard {
     uint256 private reserve1;
     uint32 private blockTimestampLast;
 
+    // Anti-flash-loan / price impact controls
+    // Max percentage of reserves allowed to be taken out per swap, in basis points (10000 = 100%)
+    uint256 public maxSwapOutPercentBps = 10000;
+    // Minimum reserves that must remain after a swap, per token
+    uint256 public minLiquidityThreshold;
+
     constructor() Ownable(msg.sender) {
         factory = msg.sender;
     }
@@ -173,6 +179,22 @@ contract Pool is Ownable, ReentrancyGuard {
         require(amount0Out < reserve0 && amount1Out < reserve1, "Pool: insufficient liquidity");
         require(to != token0 && to != token1, "Pool: invalid to");
 
+        // Enforce per-swap output limits relative to current reserves if configured (<100%)
+        if (maxSwapOutPercentBps < 10000) {
+            if (amount0Out > 0) {
+                require(amount0Out <= (reserve0 * maxSwapOutPercentBps) / 10000, "Pool: amount0Out too large");
+            }
+            if (amount1Out > 0) {
+                require(amount1Out <= (reserve1 * maxSwapOutPercentBps) / 10000, "Pool: amount1Out too large");
+            }
+        }
+
+        // Enforce minimum reserves remaining after swap if configured
+        if (minLiquidityThreshold > 0) {
+            require(reserve0 - amount0Out >= minLiquidityThreshold, "Pool: low reserve0 after swap");
+            require(reserve1 - amount1Out >= minLiquidityThreshold, "Pool: low reserve1 after swap");
+        }
+
         uint256 balance0 = IERC20(token0).balanceOf(address(this));
         uint256 balance1 = IERC20(token1).balanceOf(address(this));
 
@@ -193,6 +215,21 @@ contract Pool is Ownable, ReentrancyGuard {
         if (amount1Out > 0) _safeTransfer(token1, to, amount1Out);
 
         emit Swap(msg.sender, amount0In, amount1In, amount0Out, amount1Out, to);
+    }
+
+    /**
+     * @dev Configure per-swap maximum output percentage in basis points (10000 = 100%).
+     */
+    function setMaxSwapOutPercentBps(uint256 newBps) external onlyOwner {
+        require(newBps > 0 && newBps <= 10000, "Pool: invalid bps");
+        maxSwapOutPercentBps = newBps;
+    }
+
+    /**
+     * @dev Configure minimum reserve threshold that must remain after swaps.
+     */
+    function setMinLiquidityThreshold(uint256 newMin) external onlyOwner {
+        minLiquidityThreshold = newMin;
     }
 
     /**
