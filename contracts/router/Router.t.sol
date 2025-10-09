@@ -107,6 +107,9 @@ contract RouterTest is Test {
         factory = new Factory(feeToSetter);
         weth = new MockWETH();
         router = new Router(address(factory), address(weth));
+        // Configure trusted router
+        vm.prank(feeToSetter);
+        factory.setTrustedRouter(address(router));
         
         // Deploy test tokens
         tokenA = new MockERC20("TokenA", "TKA", INITIAL_SUPPLY);
@@ -260,6 +263,10 @@ contract RouterTest is Test {
         address pair = factory.getPair(address(tokenA), address(tokenB));
         uint256 balanceA_before = tokenA.balanceOf(pair);
         uint256 balanceB_before = tokenB.balanceOf(pair);
+        // Owner must request exit and wait out timelock before router removes
+        vm.prank(user1);
+        Pool(pair).requestExitLiquidity();
+        vm.warp(block.timestamp + 1 days + 1);
         
         // Only owner can remove liquidity
         vm.prank(user1);
@@ -290,6 +297,10 @@ contract RouterTest is Test {
         // Verify that user1 is now the owner
         address pair = factory.getPair(address(tokenA), address(tokenB));
         assertEq(Pool(pair).owner(), user1);
+        // Owner must request exit and wait out timelock
+        vm.prank(user1);
+        Pool(pair).requestExitLiquidity();
+        vm.warp(block.timestamp + 1 days + 1);
         
         // The Router can remove liquidity on behalf of the owner
         // This test verifies that the ownership-based system works correctly

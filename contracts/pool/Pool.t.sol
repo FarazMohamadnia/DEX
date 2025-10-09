@@ -174,6 +174,9 @@ contract PoolTest is Test {
         
         // Exit liquidity as owner (factory)
         vm.prank(address(factory));
+        pool.requestExitLiquidity();
+        vm.warp(block.timestamp + 1 days + 1);
+        vm.prank(address(factory));
         pool.exitLiquidity(owner);
         
         // Check tokens were transferred back
@@ -207,6 +210,9 @@ contract PoolTest is Test {
         pool.initialize(address(token0), address(token1));
         
         // Try to exit liquidity to zero address
+        vm.prank(address(factory));
+        pool.requestExitLiquidity();
+        vm.warp(block.timestamp + 1 days + 1);
         vm.expectRevert("Pool: zero address");
         vm.prank(address(factory));
         pool.exitLiquidity(address(0));
@@ -225,6 +231,9 @@ contract PoolTest is Test {
         pool.initialize(address(token0), address(token1));
         
         // Try to exit liquidity when pool has no tokens
+        vm.prank(address(factory));
+        pool.requestExitLiquidity();
+        vm.warp(block.timestamp + 1 days + 1);
         vm.expectRevert("Pool: no liquidity to exit");
         vm.prank(address(factory));
         pool.exitLiquidity(owner);
@@ -245,6 +254,9 @@ contract PoolTest is Test {
         token0.transfer(address(freshPool), 1000 * 10**18);
         
         // Test that _safeTransfer works (called internally by exitLiquidity)
+        vm.prank(address(factory));
+        freshPool.requestExitLiquidity();
+        vm.warp(block.timestamp + 1 days + 1);
         vm.prank(address(factory));
         freshPool.exitLiquidity(user1);
         console.log("token0.balanceOf(user1)", token0.balanceOf(user1));
@@ -273,6 +285,9 @@ contract PoolTest is Test {
         
         // This should work normally
         vm.prank(address(factory));
+        freshPool.requestExitLiquidity();
+        vm.warp(block.timestamp + 1 days + 1);
+        vm.prank(address(factory));
         freshPool.exitLiquidity(owner);
         
         // Verify tokens were transferred back
@@ -291,6 +306,9 @@ contract PoolTest is Test {
         
         // Test that exitLiquidity is protected against reentrancy
         // This is a basic test - in a real scenario, you'd need a malicious contract
+        vm.prank(address(factory));
+        pool.requestExitLiquidity();
+        vm.warp(block.timestamp + 1 days + 1);
         vm.prank(address(factory));
         pool.exitLiquidity(owner);
         
